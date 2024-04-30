@@ -3,7 +3,7 @@ import dbconnect from "./db/db.js";
 import { app } from "./app.js";
 dotenv.config();
 
-const port =process.env.PORT ||3000;
+const port = process.env.PORT ||3000;
  dbconnect()
  .then(()=>{
         app.on("error",(error)=>{
@@ -41,12 +41,7 @@ const port =process.env.PORT ||3000;
         // app.listen(port,()=>{
         //     console.log(`App listening on ${port}`);
         // });
-
-
-
 //     }
-
-
 //     catch(err){
 //         console.log(err);
 //     }

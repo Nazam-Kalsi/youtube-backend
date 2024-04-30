@@ -1,4 +1,4 @@
-import mongoose, { Schema, model } from "mongoose";
+import { Schema, model } from "mongoose";
 import bcrypt from "bcrypt";
 import jwt from "jwt";
 const userSchema = new Schema(
@@ -6,7 +6,7 @@ const userSchema = new Schema(
         username: {
             type: String,
             lowercase: true,
-            required: [, true, "Username is required."],
+            required: [true, "Username is required."],
             unique: [true, "This Username already exists."],
             trim: true,
             index: true,
@@ -14,19 +14,19 @@ const userSchema = new Schema(
         email: {
             type: String,
             lowercase: true,
-            required: [, true, "Username is required."],
+            required: [true, "Username is required."],
             unique: [true, "This Username already exists."],
             trim: true,
         },
         fullname: {
             type: String,
-            required: [, true, "Username is required."],
+            required: [true, "Username is required."],
             trim: true,
             index: true,
         },
         avatar: {
             type: String,
-            required: [, true, "Username is required."],
+            required: [true, "Username is required."],
         },
         coverimage: {
             type: String,
@@ -82,8 +82,5 @@ userSchema.methods.checkRefreshToken = async function (){
     )
 }
 
-userSchema.methods.checkAccessTockens=async function (){
-
-}
 
 export const user = model("user", userSchema);

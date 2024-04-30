@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
 import {db} from '../constants.js'
 // import dotenv from "dotenv";
-
 // dotenv.config();
 
 
