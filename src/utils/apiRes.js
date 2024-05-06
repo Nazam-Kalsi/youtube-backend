@@ -7,3 +7,5 @@ class ApiRes {
 
     }
 }
+
+export {ApiRes};
