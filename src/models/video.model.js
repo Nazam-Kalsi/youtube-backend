@@ -4,7 +4,7 @@ import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
 const videoSchema=new Schema({
     owner:{
         type:Schema.Types.ObjectId,
-        ref:"user",
+        ref:"User",
     },
     title:{
         type:String,
@@ -37,4 +37,4 @@ const videoSchema=new Schema({
 
 mongoose.plugin(mongooseAggregatePaginate);
 
-export const video=model("video",videoSchema)
+export const Video=model("Video",videoSchema)

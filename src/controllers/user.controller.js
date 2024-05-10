@@ -1,12 +1,13 @@
 import { handler } from "../utils/handler.js";
 import { ApiErr } from "../utils/apiErr.js";
-import { user } from "../models/user.model.js";
+import { User } from "../models/user.model.js";
 import uploadOnCloudinary from "../utils/cloudinary.js";
 import { ApiRes } from "../utils/apiRes.js";
+import jwt from "jsonwebtoken";
 
 const genetateTokens = async (userId) => {
     try {
-        const info = await user.findById(userId);
+        const info = await User.findById(userId);
         const refreshToken =await info.generateRefreshToken();
         // console.log("token :",refreshToken);
         
@@ -58,7 +59,7 @@ export const userRegistration = handler(async (req, res, next) => {
         throw new ApiErr("400", "Email format is incorrect");
     }
     //Existing user
-    const existingUser = await user.findOne({
+    const existingUser = await User.findOne({
         $or: [{ email }, { userName }],
     });
     if (existingUser)
@@ -84,23 +85,25 @@ export const userRegistration = handler(async (req, res, next) => {
 
     //cloudinary upload
     const uploadAvatarOnCloudinary = await uploadOnCloudinary(avatarLocalPath);
-    const UploadCoverImageOnCloudinary =
-        await uploadOnCloudinary(coverImagelocalPath);
+    const UploadCoverImageOnCloudinary="";
+    if(coverImagelocalPath){
+      UploadCoverImageOnCloudinary =await uploadOnCloudinary(coverImagelocalPath);
+    }
 
     if (!uploadAvatarOnCloudinary)
         throw new ApiErr(400, "error in uploading avatar try again");
 
     //create object and enter data into database.
-    const newUser = await user.create({
+    const newUser = await User.create({
         fullName,
         avatar: uploadAvatarOnCloudinary.url,
-        coverImage: UploadCoverImageOnCloudinary.url || "",
+        coverImage: UploadCoverImageOnCloudinary?.url || "",
         email,
         password,
         userName: userName.toLowerCase(),
     });
     //check user is created or not.
-    const userInfo = await user
+    const userInfo = await User
         .findById(newUser._id)
         ?.select("-password -refreshToken");
     console.log(userInfo);
@@ -112,6 +115,7 @@ export const userRegistration = handler(async (req, res, next) => {
         .status(201)
         .json(new ApiRes(200, userInfo, "user created successufully"));
 });
+
 export const userLogin = handler(async (req, res, next) => {
     {//algo
         //1. get user info.
@@ -129,7 +133,7 @@ export const userLogin = handler(async (req, res, next) => {
     }
 
     //finding in db 
-    let info = await user.findOne({
+    let info = await User.findOne({
         $or: [{ userName }, { email }],
     });
     //if present or not.
@@ -152,7 +156,7 @@ export const userLogin = handler(async (req, res, next) => {
     // delete info.password;//removing the password from response.
     // console.log(info?.password);
     //again call db (if not expensive). :-- // 
-    info=await user.findById(info._id).select("-password -refreshToken");
+    info=await User.findById(info._id).select("-password -refreshToken");
 
     //options for sending cookies.
     const options={
@@ -175,9 +179,8 @@ export const userLogin = handler(async (req, res, next) => {
     ));
 });
 
-
 export const userLogout=handler(async(req,res,next)=>{
-    await user.findByIdAndUpdate(
+    await User.findByIdAndUpdate(
         req.userInfo._id,
         {
             $set:{
@@ -199,3 +202,97 @@ export const userLogout=handler(async(req,res,next)=>{
 
 })
 
+export const regenerationOfTokens=handler(async(req,res,next)=>{
+    const cookieToken=req.cookie?.refreshToken || req.body.refreshToken;
+    if(!cookieToken){
+        throw new ApiErr(403,"No Authorization found in the request");
+    };
+    const decoded=jwt.verify(cookieToken,process.env.REFRESH_TOKEN_SECRET);
+    const info=await User.findById(decoded._id).select("-password");
+    if(!info){
+        throw new ApiErr(403,"No Authorization found in the request");
+    };
+    if(cookieToken!==info?.refreshToken){
+        throw new ApiErr(403,"No Authorization found in the request");
+    }
+    const {accessToken,refreshToken}=genetateTokens(info._id);
+    const options={
+        httpOnly:true,
+        secure:true
+    };
+    res.status(200)
+    .cookie("accessToken",accessToken,options)
+    .cookie("refreshToken",refreshToken,options)
+    .json(
+        new ApiRes(
+            200,
+            {accessToken,refreshToken},
+            "token Regenerated Successfully"
+        )
+    )
+})
+
+export const passwordChange=handler(async(req,res,next)=>{
+    let {oldPassword,newPassword}=req.body;
+    const info=await User.findById(req.userInfo._id);
+    const correctness=User.checkPassword(oldPassword);
+    if(!correctness){
+        throw new ApiErr(401,"Worng password!");
+    }
+    info.password=newPassword;
+    await info.save({validateBeforeSave:false});
+
+    return res.status(200)
+    .json(new ApiRes(200,{},"Password changed succcessfully."))
+
+})
+
+export const currentUser=handler(async(req,res,next)=>{
+    const info=  req.userInfo;
+    return req.status(200)
+    .json(new ApiRes(200,{currentUser:info},"User Fetched Succefully"));
+})
+
+export const updateInfo=handler(async(req,res,next)=>{
+    const {fullName,email}=req.body;
+
+    if(!fullName || !email){
+        throw new ApiErr(400,"Data must be provided");
+    }
+    const info=await User.findByIdAndUpdate(
+        req.userInfo._id,
+        {
+            $set:{
+                fullName,
+                email
+            }
+        },
+        {new:true}
+    ).select("-password")
+    return res.status(200)
+    .json(200,info,"Info Updated Successfully");
+})
+
+export const updateAvatar=handler(async(req,res,next)=>{
+    const avatarLocalPath=req.file?.path;
+    console.log(req.files);
+    if(!avatarLocalPath){
+        throw new ApiErr(400,"Avatar is required!");
+    }
+    const avatarPath=await uploadOnCloudinary(avatarLocalPath);
+    if(!avatarPath.url){
+        throw new ApiErr(500,"Server side error. Try again after some time.");
+    }
+    const info=await User.findByIdAndUpdate(
+        req.userInfo._id,
+        {
+            $set:{
+                avatar:avatarPath.url,
+            }
+        },
+        {new:true}
+    )
+
+    res.status(200)
+    .json(new ApiRes(200,info,"Successfully updated"));
+})
