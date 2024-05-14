@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { userLogout, userLogin, userRegistration, regenerationOfTokens } from "../controllers/user.controller.js";
+import { userLogout, userLogin, userRegistration, regenerationOfTokens, getUserDetails, getWatchHistory } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { verifyToken } from "../middlewares/auth.middleWare.js";
 const router = Router();
@@ -18,4 +18,14 @@ router.route("/login").post(userLogin);
 //secure routes
 router.route("/logout").post(verifyToken,userLogout);
 router.route("/regenerationOfTokens").post(regenerationOfTokens);
+router.route("/changePassword").post(verifyToken,passwordChange);
+router.route("/user").get(verifyToken,currentUser);
+router.route("/Detail-Update").patch(verifyToken,updateInfo);//patch to update only giver data not the whole of data. 
+router.route("/Avatar-Updation").patch(verifyToken,upload.single("avatar"),updateAvatar);
+router.route("/coverImage-Updation").patch(verifyToken,upload.single("coverImage"),updateCover);
+
+router.route("/c/:user").get(verifyToken,getUserDetails);//use '/c' as we use params for data.
+router.route("Watch-History").get(verifyToken,getWatchHistory);
+
+
 export default router;
