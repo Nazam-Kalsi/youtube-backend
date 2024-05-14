@@ -4,6 +4,7 @@ import { User } from "../models/user.model.js";
 import uploadOnCloudinary from "../utils/cloudinary.js";
 import { ApiRes } from "../utils/apiRes.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 const genetateTokens = async (userId) => {
     try {
@@ -272,7 +273,7 @@ export const updateInfo=handler(async(req,res,next)=>{
     return res.status(200)
     .json(200,info,"Info Updated Successfully");
 })
-
+// TODO: delete old image
 export const updateAvatar=handler(async(req,res,next)=>{
     const avatarLocalPath=req.file?.path;
     console.log(req.files);
@@ -295,4 +296,142 @@ export const updateAvatar=handler(async(req,res,next)=>{
 
     res.status(200)
     .json(new ApiRes(200,info,"Successfully updated"));
+})
+
+export const updateCover=handler(async(req,res,next)=>{
+    const coverLocalPath=req.file?.path;
+    console.log(req.files);
+    if(!coverLocalPath){
+        throw new ApiErr(400,"Avatar is required!");
+    }
+    const coverPath=await uploadOnCloudinary(coverLocalPath);
+    if(!coverPath.url){
+        throw new ApiErr(500,"Server side error. Try again after some time.");
+    }
+    const info=await User.findByIdAndUpdate(
+        req.userInfo._id,
+        {
+            $set:{
+                coverImage:coverPath.url,
+            }
+        },
+        {new:true}
+    )
+
+    res.status(200)
+    .json(new ApiRes(200,info,"Successfully updated"));
+})
+
+export const getUserDetails=handler(async(req,res,next)=>{
+    let {user}=req.params;
+    if(!user?.trim()){
+        throw new ApiErr(400,"User doesn't exist")
+    }
+    
+    const channel=await User.aggregate([
+        {
+            $match:{
+                userName:user?.toLowerCase()
+            }
+        },
+        {
+            $lookup:{
+                from:"$subscriptions",
+                localField:"channel",
+                foreignField:"_id",
+                as:"followers"
+            }
+        },
+        {
+            $lookup:{
+            from:"$subscriptions",
+            localField:"subscriber",
+            foreignField:"_id",
+            as:"following"
+           }
+        },
+        {
+            "$addFields":{
+                subscribers:{
+                    $size:"$followers"
+                },
+                subscribed:{
+                    $size:"$following"
+                },
+                isSubscribed:{
+                    $cond:{
+                        if:{$in:[req.userInfo?._id,"$followers"]},  //! get string. may be wrong. check!
+                        then:true,
+                        else:false
+                    }
+                }
+            }
+        },
+        {
+            $project:{
+                fullName:1,
+                userName:1,
+                subscribers:1,
+                subscribed:1,
+                isSubscribed:1,
+                avatar:1,
+                coverImage:1
+            }
+        }
+    ])
+
+    if(!channel){
+        throw new ApiErr(400,"No channel found");
+    }
+
+    return res.status(200)
+    .json(new ApiRes(200,channel[0],"data fetched successfully"));
+})
+
+export const getWatchHistory=handler(async(req,res,next)=>{
+    const loggedInUserID=req.userInfo?._id;
+
+    const watchH=User.aggregate([
+        {
+            $match:{
+                _id:loggedInUserID,
+                // _id: new mongoose.Types.ObjectId(req.userInfi._id)
+            }
+        },{
+            $lookup:{
+                from:"videos",
+                localField:"watchHistory",
+                foreignField:"_id",
+                as:"watchHistory",  
+                pipeline:[
+                    {
+                        $lookup:{
+                            from:"users",
+                            localField:"owner",
+                            foreignField:"_id",
+                            as:"owner",
+                            pipeline:[
+                                {
+                                    $project:{
+                                        avatar:1,username:1,fullName:1,coverImage:1
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        $addFields:{
+                            owner:{
+                                $first:"$owner"
+                            }
+                        }
+                    }
+                ]      
+            }
+       }        
+    ])
+
+    return res.status(200)
+    .json(200,watchH[0].watchHistory,"Watch History fetched successfully");
+
 })
