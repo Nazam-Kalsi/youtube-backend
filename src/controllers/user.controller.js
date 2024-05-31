@@ -1,10 +1,9 @@
 import { handler } from "../utils/handler.js";
 import { ApiErr } from "../utils/apiErr.js";
 import { User } from "../models/user.model.js";
-import uploadOnCloudinary from "../utils/cloudinary.js";
+import uploadOnCloudinary,{deleteFromCloudinary} from "../utils/cloudinary.js";
 import { ApiRes } from "../utils/apiRes.js";
 import jwt from "jsonwebtoken";
-import mongoose from "mongoose";
 
 const genetateTokens = async (userId) => {
     try {
@@ -85,8 +84,8 @@ export const userRegistration = handler(async (req, res, next) => {
     if (!avatarLocalPath) throw new ApiErr(400, "avatar is required");
 
     //cloudinary upload
-    const uploadAvatarOnCloudinary = await uploadOnCloudinary(avatarLocalPath);
-    const UploadCoverImageOnCloudinary="";
+    let uploadAvatarOnCloudinary = await uploadOnCloudinary(avatarLocalPath);
+    let UploadCoverImageOnCloudinary="";
     if(coverImagelocalPath){
       UploadCoverImageOnCloudinary =await uploadOnCloudinary(coverImagelocalPath);
     }
@@ -248,9 +247,9 @@ export const passwordChange=handler(async(req,res,next)=>{
 
 })
 
-export const currentUser=handler(async(req,res,next)=>{
+export const getCurrentUser=handler(async(req,res,next)=>{
     const info=  req.userInfo;
-    return req.status(200)
+    return res.status(200)
     .json(new ApiRes(200,{currentUser:info},"User Fetched Succefully"));
 })
 
@@ -271,16 +270,19 @@ export const updateInfo=handler(async(req,res,next)=>{
         {new:true}
     ).select("-password")
     return res.status(200)
-    .json(200,info,"Info Updated Successfully");
+    .json(new ApiRes(200,info,"Info Updated Successfully"));
 })
-// TODO: delete old image
+// TODO: delete old image---DONE
 export const updateAvatar=handler(async(req,res,next)=>{
+    const prevImage=req.userInfo.avatar;    
+    await deleteFromCloudinary(prevImage.match(/upload\/([^\/]+)\.[a-zA-Z0-9]+$/));
     const avatarLocalPath=req.file?.path;
-    console.log(req.files);
+    console.log(req.file);
     if(!avatarLocalPath){
         throw new ApiErr(400,"Avatar is required!");
     }
     const avatarPath=await uploadOnCloudinary(avatarLocalPath);
+    console.log(avatarPath);
     if(!avatarPath.url){
         throw new ApiErr(500,"Server side error. Try again after some time.");
     }
@@ -299,6 +301,8 @@ export const updateAvatar=handler(async(req,res,next)=>{
 })
 
 export const updateCover=handler(async(req,res,next)=>{
+    const prevCover=req.userInfo.coverImage;    
+    await deleteFromCloudinary(prevCover.match(/upload\/([^\/]+)\.[a-zA-Z0-9]+$/));
     const coverLocalPath=req.file?.path;
     console.log(req.files);
     if(!coverLocalPath){
@@ -336,17 +340,17 @@ export const getUserDetails=handler(async(req,res,next)=>{
         },
         {
             $lookup:{
-                from:"$subscriptions",
-                localField:"channel",
-                foreignField:"_id",
+                from:"subscriptions",
+                foreignField:"channel",
+                localField:"_id",
                 as:"followers"
             }
         },
         {
             $lookup:{
-            from:"$subscriptions",
-            localField:"subscriber",
-            foreignField:"_id",
+            from:"subscriptions",
+            foreignField:"subscriber",
+            localField:"_id",
             as:"following"
            }
         },
@@ -360,7 +364,7 @@ export const getUserDetails=handler(async(req,res,next)=>{
                 },
                 isSubscribed:{
                     $cond:{
-                        if:{$in:[req.userInfo?._id,"$followers"]},  //! get string. may be wrong. check!
+                        if:{$in:[req.userInfo._id,"$followers"]},
                         then:true,
                         else:false
                     }
@@ -390,12 +394,12 @@ export const getUserDetails=handler(async(req,res,next)=>{
 
 export const getWatchHistory=handler(async(req,res,next)=>{
     const loggedInUserID=req.userInfo?._id;
-
-    const watchH=User.aggregate([
+    console.log(loggedInUserID);
+    const watchH=await User.aggregate([
         {
             $match:{
                 _id:loggedInUserID,
-                // _id: new mongoose.Types.ObjectId(req.userInfi._id)
+                // _id: new mongoose.Types.ObjectId(req.userInfo._id)
             }
         },{
             $lookup:{
@@ -432,6 +436,6 @@ export const getWatchHistory=handler(async(req,res,next)=>{
     ])
 
     return res.status(200)
-    .json(200,watchH[0].watchHistory,"Watch History fetched successfully");
+    .json(new ApiRes(200,watchH[0].watchHistory,"Watch History fetched successfully"));
 
 })

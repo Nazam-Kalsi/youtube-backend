@@ -10,10 +10,10 @@ cloudinary.config({
 
 const uploadOnCloudinary=async (localPath)=>{
   try {
-    if(!localPath) return null;
+    if(!localPath) return null; 
      const file= await cloudinary.uploader.upload(localPath,{
-        resource_type:"auto"
-      })
+      resource_type: "auto",
+     })
       // console.log(file);
       fs.unlinkSync(localPath);
       return file;
@@ -23,3 +23,26 @@ const uploadOnCloudinary=async (localPath)=>{
   }
 }
 export default uploadOnCloudinary;
+export const uploadVideoOnCloudinary=async (localPath)=>{
+  try {
+    if(!localPath) return null; 
+     const file= await cloudinary.uploader.upload(localPath);
+      // console.log(file);
+      fs.unlinkSync(localPath);
+      return file;
+  } catch (error) {
+    fs.unlinkSync(localPath)//remove from the server.
+    return null;
+  }
+}
+
+
+export const deleteFromCloudinary=async(publicID)=>{
+  try {
+    if(!publicID) return null;
+    const deleted=await cloudinary.uploader.destroy(publicID);
+    return;
+  } catch (error) {
+    return null; 
+  }
+}

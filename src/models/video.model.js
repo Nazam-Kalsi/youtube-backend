@@ -13,8 +13,9 @@ const videoSchema=new Schema({
     },
     description:{
         type:String,
+        default:""
     },
-    videofile:{
+    video:{
         type:String,
         required:true,
     },
