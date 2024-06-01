@@ -9,5 +9,5 @@
 
   mongoose.plugin(mongooseAggregatePaginate);
 
-  export  const Comments=model("Comment", commentSchema);
+  export  const Comment=model("Comment", commentSchema);
 

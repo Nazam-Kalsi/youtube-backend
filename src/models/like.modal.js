@@ -1,4 +1,5 @@
 import { Schema, model } from "mongoose";
+import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
 
 const likeSchema = new Schema({
     comment: { type: Schema.Types.ObjectId, ref: "Comment"},
@@ -7,5 +8,6 @@ const likeSchema = new Schema({
     user: { type: Schema.Types.ObjectId, ref: "User", required: true },
 },{timestamps:true});
 
-export const Likes = model("Like", likeSchema);
+mongoose.plugin(mongooseAggregatePaginate);
+export const Like = model("Like", likeSchema);
 

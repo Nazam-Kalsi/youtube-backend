@@ -66,6 +66,9 @@ export const deleteTweet=handler(async(req,res,next)=>{
 
 export const getUserTweets=handler(async(req,res,next)=>{
    const userID=req.userInfo._id;
+   const {limit=10,page=1}=req.query;
+   const options={limit,page};
+   
     const tweet=await Tweet.aggregate([
         {$match:{owner:new mongoose.Types.ObjectId(userID)}
         },{
@@ -85,11 +88,17 @@ export const getUserTweets=handler(async(req,res,next)=>{
            $first:"$owner",
         }
     }
-])
+]);
+
     if(!tweet){
         throw new ApiErr(400,"Tweet Not Found");
     }
-    return res.status(200).json(new ApiRes(200,tweet,"Tweet fetched successuFully."));
+    try {
+        const pagination=await Tweet.aggregatePaginate(tweet,options);
+        return res.status(200).json(new ApiRes(200,pagination,"Tweet fetched successuFully."));
+    } catch (error) {
+        throw new ApiErr(400,"error while pagination of Tweets.Try again later.")
+    }
 })
 
 
