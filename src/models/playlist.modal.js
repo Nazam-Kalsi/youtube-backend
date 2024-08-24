@@ -7,4 +7,4 @@ const playlistSchema = new Schema({
     video: [{ type: Schema.Types.ObjectId, ref: "Video", required: true }],
 },{timestamps:true});
 
-export const Playlists = model("Playlist", playlistSchema);
+export const Playlist = model("Playlist", playlistSchema);
